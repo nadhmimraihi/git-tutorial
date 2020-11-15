@@ -1,0 +1,13 @@
+diff --git a/src/MAIN FUNCTION.c b/src/MAIN FUNCTION.c
+index d768aad..7d7be98 100644
+--- a/src/MAIN FUNCTION.c	
++++ b/src/MAIN FUNCTION.c	
+@@ -4,7 +4,7 @@
+ int main(void)
+ {
+     printf("Hello ESPL");
+-
++printf("New print");
+ return 0  ;
+    
+ }
