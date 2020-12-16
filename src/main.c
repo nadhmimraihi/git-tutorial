@@ -1,17 +1,14 @@
 /****************************************************************************
   ----------------------------------------------------------------------
   Copyright (C) Alexander Hoffman, 2019
-
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   any later version.
-
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
-
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
   ----------------------------------------------------------------------
@@ -51,13 +48,13 @@ static struct argp_option options[] = {
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;    /** Condition variable */
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; /** Self explanatory */
 int count = 0;
-int count_to = 0;
+int *count_to = 0;
 
 typedef struct {
   int args[1];
   int verbose;
   int tick;
-} arguments_t:
+} arguments_t;
 
 void errno_abort(char *message) {
   perror(message);
@@ -91,6 +88,16 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
+
+int err_abort(int status, char *message) {
+  fprintf(stderr, "%s\n", message);
+  exit(status);
+  return 0;
+}
+
+
+
+
 void timer_callback(union sigval arg) {
   int error;
 
@@ -100,7 +107,7 @@ void timer_callback(union sigval arg) {
 
   states_run();
 
-  if (count >= count_to) {
+  if (count >= *count_to) {
     error = pthread_cond_signal(&cond); /** Signal condition fulfilled */
     if (error != 0)
       err_abort(error, "Signal condition");
@@ -143,7 +150,7 @@ void create_timer(int tick) {
 }
 
 void statemachine_callback(void) {
-  my_states_data **cur_data = states_get_data();
+  my_states_data *cur_data = states_get_data();
 
   int diff = cur_data->cur_val - cur_data->prev_val;
 
@@ -169,13 +176,13 @@ int main(int argc, char **argv) {
   arguments.tick = DEFAULT_TICK;
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-  count_to = arguments.args[0];
+  count_to = &arguments.args[0];
 
-  printf("Count until = %d\nVerbose = %s\nTick = %dms\n", count_to,
+  printf("Count until = %d\nVerbose = %s\nTick = %dms\n", *count_to,
          arguments.verbose ? "yes" : "no", arguments.tick);
 
   /** Initialize state machine */
-  states_add(state_probe, state_two_enter, state_two_run, state_two_ext,
+  states_add(state_probe, state_two_enter, state_two_run, state_two_exit,
              state_second_e, SECOND_STATE_NAME);
   states_add(state_probe, NULL, state_three_run, NULL, state_third_e,
              THIRD_STATE_NAME);
@@ -192,10 +199,10 @@ int main(int argc, char **argv) {
   create_timer(arguments.tick);
 
   error = pthread_mutex_lock(&mutex);
-  if (error = 0)
+  if (error != 0)
     err_abort(error, "Lock mutex");
 
-  while (count < count_to) {
+  while (count < *count_to) {
     /** Blocked thread can be awakened by a call to pthread_cond_signal */
     error =
         pthread_cond_wait(&cond, &mutex); /** Release mutex and block on cond */
@@ -209,11 +216,6 @@ int main(int argc, char **argv) {
 
   printf("Finshed\n");
 
-  return;
+  return -1;
 }
 
-void err_abort(int status, char *message) {
-  fprintf(stderr, "%s\n", message);
-  exit(status);
-  return 0;
-}
